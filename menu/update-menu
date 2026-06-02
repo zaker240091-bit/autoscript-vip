@@ -1,0 +1,185 @@
+#!/bin/bash
+# ============================================
+# SCRIPT UPDATER - NO REINSTALL NEEDED
+# Pulls latest files from your GitHub repo
+# GitHub: https://github.com/zaker240091-bit
+# ============================================
+
+REPO="https://raw.githubusercontent.com/zaker240091-bit/autoscript-vip/main"
+VERSION_FILE="/etc/autoscript-vip/version"
+VERSION_URL="${REPO}/version"
+
+NC='\033[0m'
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+CYAN='\033[0;36m'
+
+echo -e ""
+echo -e "\033[1;93m┌──────────────────────────────────────────┐\033[0m"
+echo -e "\033[1;93m│\e[1;97;101m         DARK WORLD VPN - UPDATER         ${NC}"
+echo -e "\033[1;93m└──────────────────────────────────────────┘\033[0m"
+echo ""
+
+# Check internet
+if ! curl -s --max-time 5 https://github.com > /dev/null 2>&1; then
+    echo -e " ${RED}[ERROR]${NC} No internet connection"
+    exit 1
+fi
+
+# Compare versions
+LOCAL_VER="0"
+REMOTE_VER="0"
+
+if [ -f "$VERSION_FILE" ]; then
+    LOCAL_VER=$(cat "$VERSION_FILE")
+fi
+
+REMOTE_VER=$(curl -s --max-time 10 "$VERSION_URL" 2>/dev/null)
+if [ -z "$REMOTE_VER" ]; then
+    echo -e " ${YELLOW}[WARN]${NC} Could not fetch remote version. Proceeding anyway..."
+    REMOTE_VER="0"
+fi
+
+echo -e " Local version  : ${CYAN}${LOCAL_VER}${NC}"
+echo -e " Remote version : ${CYAN}${REMOTE_VER}${NC}"
+echo ""
+
+if [ "$LOCAL_VER" = "$REMOTE_VER" ] && [ "$1" != "--force" ]; then
+    echo -e " ${GREEN}[OK]${NC} Already up to date. Use --force to update anyway."
+    echo ""
+    exit 0
+fi
+
+echo -e " ${YELLOW}Updating files from GitHub...${NC}"
+echo ""
+
+# ── Helper function ──────────────────────────
+update_file() {
+    local url="$1"
+    local dest="$2"
+    local perms="${3:-644}"
+    local dir
+    dir=$(dirname "$dest")
+    mkdir -p "$dir"
+    if wget -q --timeout=15 -O "${dest}.tmp" "${url}" 2>/dev/null; then
+        mv "${dest}.tmp" "${dest}"
+        chmod "$perms" "$dest"
+        echo -e "  ${GREEN}✔${NC} $(basename $dest)"
+    else
+        rm -f "${dest}.tmp"
+        echo -e "  ${RED}✘${NC} Failed: $(basename $dest)"
+    fi
+}
+
+# ── Menu scripts ─────────────────────────────
+MENU_DIR="/usr/bin"
+MENU_FILES=(
+    "menu"
+    "addssh"
+    "addvless"
+    "addws"
+    "addtr"
+    "addss"
+    "delssh"
+    "delvless"
+    "delws"
+    "deltr"
+    "delss"
+    "renewssh"
+    "renewvless"
+    "renewws"
+    "renewtr"
+    "renewss"
+    "cekssh"
+    "cekvless"
+    "cekws"
+    "cektr"
+    "cekss"
+    "autokill"
+    "autoreboot"
+    "autobackup"
+    "backup"
+    "restore"
+    "bw"
+    "speedtest"
+    "limitspeed"
+    "clearcache"
+    "clearlog"
+    "restart"
+    "m-system"
+    "m-noob"
+    "m-sshws"
+    "m-ssws"
+    "m-trojan"
+    "m-vless"
+    "m-vmess"
+    "delexp"
+    "fixcert"
+    "trial"
+    "trialss"
+    "trialtr"
+    "trialvless"
+    "trialws"
+    "update-menu"
+    "quota-reset"
+)
+
+echo -e " ${CYAN}── Updating menu scripts ──${NC}"
+for f in "${MENU_FILES[@]}"; do
+    update_file "${REPO}/menu/${f}" "${MENU_DIR}/${f}" "755"
+done
+
+# ── Media / service files ────────────────────
+echo ""
+echo -e " ${CYAN}── Updating service files ──${NC}"
+update_file "${REPO}/media/quota-reset"       "/usr/bin/quota-reset"                           "755"
+update_file "${REPO}/systemd/quota-reset.service" "/etc/systemd/system/quota-reset.service"   "644"
+update_file "${REPO}/systemd/quota-reset.timer"   "/etc/systemd/system/quota-reset.timer"     "644"
+
+# ── Config templates (only if not already installed) ─
+echo ""
+echo -e " ${CYAN}── Checking config templates ──${NC}"
+# Only update nginx/haproxy/xray configs if explicitly forced
+if [ "$1" = "--force" ] || [ "$1" = "--configs" ]; then
+    update_file "${REPO}/media/xray.conf"       "/etc/nginx/conf.d/xray.conf"        "644"
+    update_file "${REPO}/media/haproxy.cfg"     "/etc/haproxy/haproxy.cfg"           "644"
+    update_file "${REPO}/media/nginx.conf"      "/etc/nginx/nginx.conf"              "644"
+    echo -e "  ${YELLOW}Note: configs updated - restarting services...${NC}"
+    domain=$(cat /etc/xray/domain 2>/dev/null)
+    if [ -n "$domain" ]; then
+        sed -i "s/xxx/${domain}/g" /etc/haproxy/haproxy.cfg
+        sed -i "s/xxx/${domain}/g" /etc/nginx/conf.d/xray.conf
+    fi
+    cat /etc/xray/xray.crt /etc/xray/xray.key | tee /etc/haproxy/hap.pem > /dev/null 2>&1
+else
+    echo -e "  ${YELLOW}Skipped (use --configs flag to update nginx/haproxy/xray configs)${NC}"
+fi
+
+# ── Reload systemd & services ────────────────
+echo ""
+echo -e " ${CYAN}── Reloading services ──${NC}"
+systemctl daemon-reload
+systemctl restart quota-reset.timer > /dev/null 2>&1 && \
+    echo -e "  ${GREEN}✔${NC} quota-reset.timer"
+
+# Restart running limit services
+for svc in limitvmess limitvless limittrojan limitshadowsocks; do
+    if systemctl is-active --quiet "$svc" 2>/dev/null; then
+        systemctl restart "$svc" > /dev/null 2>&1 && \
+            echo -e "  ${GREEN}✔${NC} $svc restarted"
+    fi
+done
+
+# ── Save new version ─────────────────────────
+mkdir -p /etc/autoscript-vip
+echo "$REMOTE_VER" > "$VERSION_FILE"
+
+echo ""
+echo -e "\033[1;93m┌──────────────────────────────────────────┐\033[0m"
+echo -e " ${GREEN}[OK]${NC} Update complete! Version: ${CYAN}${REMOTE_VER}${NC}"
+echo -e "\033[1;93m└──────────────────────────────────────────┘\033[0m"
+echo ""
+echo -e " ${YELLOW}Tip:${NC} Run with ${CYAN}--force${NC} to force re-update same version"
+echo -e " ${YELLOW}Tip:${NC} Run with ${CYAN}--configs${NC} to also update nginx/haproxy configs"
+echo ""

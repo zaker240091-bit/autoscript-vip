@@ -1,0 +1,268 @@
+#!/bin/bash
+# ============================================
+# MENU - DAILY QUOTA RESET MANAGER
+# GitHub: https://github.com/zaker240091-bit
+# ============================================
+
+NC='\033[0m'
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+CYAN='\033[0;36m'
+grenbo="\e[92;1m"
+PURPLE='\033[0;34m'
+
+# Check timer status
+timer_status() {
+    if systemctl is-active --quiet quota-reset.timer 2>/dev/null; then
+        echo -e "${GREEN}ON${NC}"
+    else
+        echo -e "${RED}OFF${NC}"
+    fi
+}
+
+# Check last reset time
+last_reset() {
+    if [ -f /var/log/quota-reset.log ]; then
+        tail -1 /var/log/quota-reset.log | grep -oP '\[\K[^\]]+'
+    else
+        echo "Never"
+    fi
+}
+
+# Next scheduled reset
+next_reset() {
+    systemctl status quota-reset.timer 2>/dev/null \
+        | grep "Trigger:" | awk '{print $2, $3}' \
+        | head -1
+}
+
+function show_menu() {
+    clear
+    sts=$(timer_status)
+    last=$(last_reset)
+    echo -e ""
+    echo -e "\033[1;93m┌──────────────────────────────────────────┐\033[0m"
+    echo -e "\033[1;93m│\e[1;97;101m        MENU DAILY QUOTA RESET            ${NC}"
+    echo -e "\033[1;93m└──────────────────────────────────────────┘\033[0m"
+    echo -e "\033[1;93m┌──────────────────────────────────────────┐\033[0m"
+    echo -e "\033[1;93m│  Status Timer : $sts"
+    echo -e "\033[1;93m│  Last Reset   : ${CYAN}${last}${NC}"
+    echo -e "\033[1;93m└──────────────────────────────────────────┘\033[0m"
+    echo -e "\033[1;93m┌──────────────────────────────────────────┐\033[0m"
+    echo -e "\033[1;93m│  ${grenbo}1.${NC} \033[0;36mEnable Auto Reset (Daily at 00:00)${NC}"
+    echo -e "\033[1;93m│  ${grenbo}2.${NC} \033[0;36mDisable Auto Reset${NC}"
+    echo -e "\033[1;93m│  ${grenbo}3.${NC} \033[0;36mRun Reset NOW (Manual)${NC}"
+    echo -e "\033[1;93m│  ${grenbo}4.${NC} \033[0;36mSet Custom Reset Time${NC}"
+    echo -e "\033[1;93m│  ${grenbo}5.${NC} \033[0;36mView Reset Log${NC}"
+    echo -e "\033[1;93m│  ${grenbo}6.${NC} \033[0;36mSet Reset per Protocol Only${NC}"
+    echo -e "\033[1;93m│  ${grenbo}0.${NC} \033[0;36mBack to Menu${NC}"
+    echo -e "\033[1;93m└──────────────────────────────────────────┘\033[0m"
+    echo ""
+    read -p " Select [0-6] : " opt
+    echo ""
+    case $opt in
+        1) enable_reset ;;
+        2) disable_reset ;;
+        3) manual_reset ;;
+        4) custom_time ;;
+        5) view_log ;;
+        6) protocol_only ;;
+        0) clear ; menu ;;
+        *) show_menu ;;
+    esac
+}
+
+function enable_reset() {
+    clear
+    echo -e "\033[1;93m┌──────────────────────────────────────────┐\033[0m"
+    echo -e "        Enabling Daily Quota Reset"
+    echo -e "\033[1;93m└──────────────────────────────────────────┘\033[0m"
+    echo ""
+
+    # Install the script if not present
+    if [ ! -f /usr/bin/quota-reset ]; then
+        wget -q -O /usr/bin/quota-reset \
+            "https://raw.githubusercontent.com/zaker240091-bit/autoscript-vip/main/media/quota-reset"
+        chmod +x /usr/bin/quota-reset
+        echo -e " ${GREEN}[OK]${NC} quota-reset script installed"
+    fi
+
+    # Install systemd service + timer
+    wget -q -O /etc/systemd/system/quota-reset.service \
+        "https://raw.githubusercontent.com/zaker240091-bit/autoscript-vip/main/systemd/quota-reset.service"
+    wget -q -O /etc/systemd/system/quota-reset.timer \
+        "https://raw.githubusercontent.com/zaker240091-bit/autoscript-vip/main/systemd/quota-reset.timer"
+
+    systemctl daemon-reload
+    systemctl enable quota-reset.timer --now > /dev/null 2>&1
+
+    echo -e " ${GREEN}[OK]${NC} Auto reset enabled — runs daily at 00:00"
+    echo ""
+    read -n 1 -s -r -p " Press any key to back on menu"
+    show_menu
+}
+
+function disable_reset() {
+    clear
+    echo -e "\033[1;93m┌──────────────────────────────────────────┐\033[0m"
+    echo -e "        Disabling Daily Quota Reset"
+    echo -e "\033[1;93m└──────────────────────────────────────────┘\033[0m"
+    echo ""
+    systemctl disable quota-reset.timer --now > /dev/null 2>&1
+    echo -e " ${GREEN}[OK]${NC} Auto reset disabled"
+    echo ""
+    read -n 1 -s -r -p " Press any key to back on menu"
+    show_menu
+}
+
+function manual_reset() {
+    clear
+    echo -e "\033[1;93m┌──────────────────────────────────────────┐\033[0m"
+    echo -e "        Running Manual Quota Reset"
+    echo -e "\033[1;93m└──────────────────────────────────────────┘\033[0m"
+    echo ""
+    echo -e " ${YELLOW}Resetting all user quotas...${NC}"
+    echo ""
+
+    if [ ! -f /usr/bin/quota-reset ]; then
+        wget -q -O /usr/bin/quota-reset \
+            "https://raw.githubusercontent.com/zaker240091-bit/autoscript-vip/main/media/quota-reset"
+        chmod +x /usr/bin/quota-reset
+    fi
+
+    /usr/bin/quota-reset
+
+    echo ""
+    echo -e " ${GREEN}[OK]${NC} All quotas have been reset"
+    echo ""
+    read -n 1 -s -r -p " Press any key to back on menu"
+    show_menu
+}
+
+function custom_time() {
+    clear
+    echo -e "\033[1;93m┌──────────────────────────────────────────┐\033[0m"
+    echo -e "        Set Custom Reset Schedule"
+    echo -e "\033[1;93m└──────────────────────────────────────────┘\033[0m"
+    echo ""
+    echo -e "  ${CYAN}1.${NC} Every day at 00:00 (midnight)  [default]"
+    echo -e "  ${CYAN}2.${NC} Every day at 06:00 (morning)"
+    echo -e "  ${CYAN}3.${NC} Every day at 12:00 (noon)"
+    echo -e "  ${CYAN}4.${NC} Every day at 18:00 (evening)"
+    echo -e "  ${CYAN}5.${NC} Custom time (manual input)"
+    echo ""
+    read -p " Select [1-5] : " topt
+
+    case $topt in
+        1) SCHEDULE="*-*-* 00:00:00" ; LABEL="00:00 (midnight)" ;;
+        2) SCHEDULE="*-*-* 06:00:00" ; LABEL="06:00 (morning)" ;;
+        3) SCHEDULE="*-*-* 12:00:00" ; LABEL="12:00 (noon)" ;;
+        4) SCHEDULE="*-*-* 18:00:00" ; LABEL="18:00 (evening)" ;;
+        5)
+            read -p " Enter hour (0-23): " HR
+            read -p " Enter minute (0-59): " MN
+            SCHEDULE="*-*-* $(printf '%02d' $HR):$(printf '%02d' $MN):00"
+            LABEL="${HR}:${MN}"
+            ;;
+        *) show_menu ; return ;;
+    esac
+
+    # Rewrite timer with new schedule
+    cat > /etc/systemd/system/quota-reset.timer <<EOF
+[Unit]
+Description=Daily Quota Reset Timer - Dark World VPN
+
+[Timer]
+OnCalendar=${SCHEDULE}
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+EOF
+
+    systemctl daemon-reload
+    systemctl enable quota-reset.timer --now > /dev/null 2>&1
+    echo ""
+    echo -e " ${GREEN}[OK]${NC} Reset scheduled daily at ${LABEL}"
+    echo ""
+    read -n 1 -s -r -p " Press any key to back on menu"
+    show_menu
+}
+
+function view_log() {
+    clear
+    echo -e "\033[1;93m┌──────────────────────────────────────────┐\033[0m"
+    echo -e "        Quota Reset Log (last 30 lines)"
+    echo -e "\033[1;93m└──────────────────────────────────────────┘\033[0m"
+    echo ""
+    if [ -f /var/log/quota-reset.log ]; then
+        tail -30 /var/log/quota-reset.log
+    else
+        echo -e " ${YELLOW}No log file found. Reset has not run yet.${NC}"
+    fi
+    echo ""
+    read -n 1 -s -r -p " Press any key to back on menu"
+    show_menu
+}
+
+function protocol_only() {
+    clear
+    echo -e "\033[1;93m┌──────────────────────────────────────────┐\033[0m"
+    echo -e "        Reset Specific Protocol Only"
+    echo -e "\033[1;93m└──────────────────────────────────────────┘\033[0m"
+    echo ""
+    echo -e "  ${CYAN}1.${NC} VMess only"
+    echo -e "  ${CYAN}2.${NC} VLess only"
+    echo -e "  ${CYAN}3.${NC} Trojan only"
+    echo -e "  ${CYAN}4.${NC} Shadowsocks only"
+    echo -e "  ${CYAN}5.${NC} SSH only"
+    echo -e "  ${CYAN}0.${NC} Back"
+    echo ""
+    read -p " Select [0-5] : " popt
+    echo ""
+
+    case $popt in
+        1) PROTO="vmess" ; DIR="/etc/limit/vmess" ; DB_PREFIX="###" ;;
+        2) PROTO="vless" ; DIR="/etc/limit/vless" ; DB_PREFIX="#&" ;;
+        3) PROTO="trojan" ; DIR="/etc/limit/trojan" ; DB_PREFIX="#!" ;;
+        4) PROTO="shadowsocks" ; DIR="/etc/limit/shadowsocks" ; DB_PREFIX="###" ;;
+        5) PROTO="ssh" ; DIR="/etc/ssh" ; DB_PREFIX="" ;;
+        0) show_menu ; return ;;
+        *) protocol_only ; return ;;
+    esac
+
+    echo -e " ${YELLOW}Resetting ${PROTO} quotas...${NC}"
+
+    if [ "$PROTO" = "ssh" ]; then
+        for f in /etc/ssh/*; do
+            user=$(basename "$f")
+            [[ "$user" == .* ]] && continue
+            [ -f "$f" ] || continue
+            if id "$user" &>/dev/null; then
+                echo "0" > "$f"
+                echo -e "  Reset: $user"
+            fi
+        done
+    else
+        for f in ${DIR}/*; do
+            [ -f "$f" ] || continue
+            user=$(basename "$f")
+            if [ -f "/etc/${PROTO}/${user}" ]; then
+                echo "0" > "$f"
+                xray api stats --server=127.0.0.1:10000 \
+                    -name "user>>>${user}>>>traffic>>>downlink" -reset > /dev/null 2>&1
+                echo -e "  Reset: $user"
+            fi
+        done
+        systemctl restart xray > /dev/null 2>&1
+    fi
+
+    echo ""
+    echo -e " ${GREEN}[OK]${NC} ${PROTO} quotas reset"
+    echo ""
+    read -n 1 -s -r -p " Press any key to back on menu"
+    show_menu
+}
+
+show_menu
