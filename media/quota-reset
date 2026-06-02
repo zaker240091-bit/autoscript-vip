@@ -1,0 +1,134 @@
+#!/bin/bash
+# ============================================
+# DAILY QUOTA RESET
+# Supports: VMess, VLess, Trojan, Shadowsocks, SSH
+# GitHub: https://github.com/zaker240091-bit
+# ============================================
+
+REPO="https://raw.githubusercontent.com/zaker240091-bit/autoscript-vip/main"
+
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+CYAN='\033[0;36m'
+NC='\033[0m'
+
+LOG_FILE="/var/log/quota-reset.log"
+DATE=$(date +"%Y-%m-%d %H:%M:%S")
+
+log() {
+    echo "[$DATE] $1" >> "$LOG_FILE"
+}
+
+log "===== DAILY QUOTA RESET STARTED ====="
+
+# ── VMess ────────────────────────────────────
+reset_vmess() {
+    if [ -d /etc/limit/vmess ]; then
+        for user_file in /etc/limit/vmess/*; do
+            [ -f "$user_file" ] || continue
+            user=$(basename "$user_file")
+            # Check if user still exists in config
+            if grep -qw "^### $user" /etc/xray/config.json 2>/dev/null; then
+                # Get original quota limit
+                if [ -f "/etc/vmess/$user" ]; then
+                    echo "0" > "/etc/limit/vmess/$user"
+                    # Reset xray stats counter for this user
+                    xray api stats --server=127.0.0.1:10000 \
+                        -name "user>>>${user}>>>traffic>>>downlink" -reset > /dev/null 2>&1
+                    xray api stats --server=127.0.0.1:10000 \
+                        -name "user>>>${user}>>>traffic>>>uplink" -reset > /dev/null 2>&1
+                    log "VMess reset: $user"
+                fi
+            fi
+        done
+    fi
+}
+
+# ── VLess ────────────────────────────────────
+reset_vless() {
+    if [ -d /etc/limit/vless ]; then
+        for user_file in /etc/limit/vless/*; do
+            [ -f "$user_file" ] || continue
+            user=$(basename "$user_file")
+            if grep -qw "^#& $user" /etc/xray/config.json 2>/dev/null; then
+                if [ -f "/etc/vless/$user" ]; then
+                    echo "0" > "/etc/limit/vless/$user"
+                    xray api stats --server=127.0.0.1:10000 \
+                        -name "user>>>${user}>>>traffic>>>downlink" -reset > /dev/null 2>&1
+                    xray api stats --server=127.0.0.1:10000 \
+                        -name "user>>>${user}>>>traffic>>>uplink" -reset > /dev/null 2>&1
+                    log "VLess reset: $user"
+                fi
+            fi
+        done
+    fi
+}
+
+# ── Trojan ───────────────────────────────────
+reset_trojan() {
+    if [ -d /etc/limit/trojan ]; then
+        for user_file in /etc/limit/trojan/*; do
+            [ -f "$user_file" ] || continue
+            user=$(basename "$user_file")
+            if grep -qw "^#! $user" /etc/xray/config.json 2>/dev/null; then
+                if [ -f "/etc/trojan/$user" ]; then
+                    echo "0" > "/etc/limit/trojan/$user"
+                    xray api stats --server=127.0.0.1:10000 \
+                        -name "user>>>${user}>>>traffic>>>downlink" -reset > /dev/null 2>&1
+                    xray api stats --server=127.0.0.1:10000 \
+                        -name "user>>>${user}>>>traffic>>>uplink" -reset > /dev/null 2>&1
+                    log "Trojan reset: $user"
+                fi
+            fi
+        done
+    fi
+}
+
+# ── Shadowsocks ──────────────────────────────
+reset_shadowsocks() {
+    if [ -d /etc/limit/shadowsocks ]; then
+        for user_file in /etc/limit/shadowsocks/*; do
+            [ -f "$user_file" ] || continue
+            user=$(basename "$user_file")
+            if [ -f "/etc/shadowsocks/$user" ]; then
+                echo "0" > "/etc/limit/shadowsocks/$user"
+                xray api stats --server=127.0.0.1:10000 \
+                    -name "user>>>${user}>>>traffic>>>downlink" -reset > /dev/null 2>&1
+                xray api stats --server=127.0.0.1:10000 \
+                    -name "user>>>${user}>>>traffic>>>uplink" -reset > /dev/null 2>&1
+                log "Shadowsocks reset: $user"
+            fi
+        done
+    fi
+}
+
+# ── SSH ──────────────────────────────────────
+reset_ssh() {
+    if [ -d /etc/ssh ]; then
+        for user_file in /etc/ssh/*; do
+            [ -f "$user_file" ] || continue
+            user=$(basename "$user_file")
+            # Skip hidden files like .ssh.db
+            [[ "$user" == .* ]] && continue
+            if id "$user" &>/dev/null; then
+                echo "0" > "/etc/ssh/$user"
+                log "SSH reset: $user"
+            fi
+        done
+    fi
+}
+
+# ── Run all resets ───────────────────────────
+reset_vmess
+reset_vless
+reset_trojan
+reset_shadowsocks
+reset_ssh
+
+# Reload xray to pick up cleared stats
+systemctl restart xray > /dev/null 2>&1
+
+log "===== DAILY QUOTA RESET COMPLETED ====="
+echo -e "${GREEN}[OK]${NC} Daily quota reset completed. Log: $LOG_FILE"
