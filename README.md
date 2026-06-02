@@ -1,7 +1,7 @@
 # 🚀 SCRIPT AUTO INSTALL SSH & XRAY MULTIPORT
 
 **Base Script by:** Arya Blitar  
-**Modified by:** Fahri Alimudin
+**Modified by:** Fahri Alimudin  
 **Modified 2nd by:** Zakir 
 
 ---
