@@ -2,6 +2,7 @@
 
 **Base Script by:** Arya Blitar  
 **Modified by:** Fahri Alimudin
+**Modified 2nd by:**Zakir 
 
 ---
 
@@ -99,21 +100,5 @@ apt update -y && apt install -y wget curl ca-certificates && wget -q https://raw
 - 🌐 **DNS Changer**  
 - 🎨 **Custom Menu Color**  
 
----
-
-## 📞 KONTAK & BANTUAN
-
-Jika ada pertanyaan atau butuh bantuan, hubungi saya di:
-
-- 🟢 **WhatsApp:** [https://wa.me/6282328013583](https://wa.me/6282328013583)
-- 🔵 **Telegram:** [@fahrialimudin](https://t.me/fahrialimudin)
-
----
-
-## 🙏 PENUTUP & KREDIT
-
-Terima kasih banyak kepada **ARYA BLITAR** atas script dasarnya yang luar biasa sehingga saya bisa melakukan modifikasi ini.
-
-Gunakan script ini dengan bijak. Dilarang keras untuk diperjualbelikan karena script ini didapatkan secara gratis.
-
+----
 > © 2026 Fahri Alimudin - Autoscript VIP
