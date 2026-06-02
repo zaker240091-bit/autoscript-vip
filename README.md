@@ -40,10 +40,9 @@ update-menu
 ---
 
 ## ✦ Requirements
-- Ubuntu 20.04 / 22.04
+- Ubuntu 18.04 / 20.04 / 22.04 / 24.04
+- Debian 9 / 10 / 11 / 12
 - Fresh VPS (clean install)
 - Root access
-
----
-
+- Architecture: x86_64 / amd64
 *Dark World VPN — github.com/zaker240091-bit*
