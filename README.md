@@ -70,7 +70,7 @@ apt update -y && apt install -y wget curl ca-certificates && wget -q https://raw
 ## 📱 TAMPILAN MENU
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/zaker240091-bit/autoscript-vip/main/gambar/menu.jpg" alt="Tampilan Menu" width="100%"/>
+  <img src="https://raw.githubusercontent.com/zaker240091-bit/autoscript-vip/main/image/menu.jpg" alt="Tampilan Menu" width="100%"/>
 </p>
 
 ---
