@@ -65,9 +65,6 @@ Login ke VPS Anda sebagai **root** (`sudo su`), lalu salin dan jalankan kode ber
 ```bash
 apt update -y && apt install -y wget curl ca-certificates && wget -q https://raw.githubusercontent.com/zaker240091-bit/autoscript-vip/main/setup.sh && chmod +x setup.sh && ./setup.sh
 ```
-
-> ✅ Kode di atas bisa langsung di-copy dengan mengklik ikon salin di pojok kanan blok kode.
-
 ---
 
 ## 📱 TAMPILAN MENU
@@ -101,4 +98,4 @@ apt update -y && apt install -y wget curl ca-certificates && wget -q https://raw
 - 🎨 **Custom Menu Color**  
 
 ----
-> © 2026 Fahri Alimudin - Autoscript VIP
+> © 2026 Zakir - Autoscript VIP
